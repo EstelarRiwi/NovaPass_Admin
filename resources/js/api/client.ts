@@ -1,4 +1,5 @@
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+let redirecting = false
 
 interface RequestOptions extends RequestInit {
   params?: Record<string, string>
@@ -37,9 +38,12 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   })
 
   if (response.status === 401) {
-    setToken(null)
-    localStorage.removeItem('user')
-    window.location.href = '/login'
+    if (!redirecting) {
+      redirecting = true
+      setToken(null)
+      localStorage.removeItem('user')
+      window.location.href = '/login'
+    }
     throw new Error('Session expired')
   }
 
