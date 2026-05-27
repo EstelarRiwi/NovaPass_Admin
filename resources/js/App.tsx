@@ -7,6 +7,7 @@ import Events from './pages/Events'
 import PQRS from './pages/PQRS'
 import Employees from './pages/Employees'
 import Audit from './pages/Audit'
+import NotFound from './pages/NotFound'
 import './styles/global.css'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -33,7 +34,7 @@ function AppRoutes() {
         <Route path="/employees" element={<Employees />} />
         <Route path="/audit" element={<Audit />} />
       </Route>
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      <Route path="*" element={<NotFound />} />
     </Routes>
   )
 }
