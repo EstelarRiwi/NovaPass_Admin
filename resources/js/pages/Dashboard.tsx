@@ -6,29 +6,13 @@ import {
 } from 'chart.js'
 import { Bar, Line } from 'react-chartjs-2'
 import { api } from '../api/client'
-import { DEMO_TOKEN } from '../context/AuthContext'
 import { TrendingUp, Users, Ticket, DollarSign } from 'lucide-react'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend, Filler)
 
 interface SalesData  { labels: string[]; values: number[] }
-interface OccupancyData { event: string; total: number; sold: number }[]
+interface OccupancyRow { event: string; total: number; sold: number }
 interface UserData   { labels: string[]; values: number[] }
-
-const DEMO_SALES: SalesData = {
-  labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'],
-  values: [1200000, 1850000, 1400000, 2100000, 1750000, 2400000],
-}
-const DEMO_OCCUPANCY: OccupancyData = [
-  { event: 'Noche de Jazz', total: 500, sold: 487 },
-  { event: 'Rock Clásico', total: 800, sold: 654 },
-  { event: 'Ballet Gala',  total: 350, sold: 350 },
-  { event: 'Comedia Live', total: 400, sold: 211 },
-]
-const DEMO_USERS: UserData = {
-  labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'],
-  values: [45, 72, 58, 94, 81, 127],
-}
 
 const CHART_OPTS = {
   responsive: true,
@@ -40,7 +24,36 @@ const CHART_OPTS = {
   },
 }
 
-const isDemo = () => localStorage.getItem('token') === DEMO_TOKEN
+function mapSales(raw: any): SalesData | null {
+  if (!raw) return null
+  const items: any[] = Array.isArray(raw) ? raw : (raw.data ?? [])
+  if (!items.length) return null
+  return {
+    labels: items.map((i: any) => i.month ?? i.label ?? i.date ?? String(i)),
+    values: items.map((i: any) => i.total ?? i.value ?? i.amount ?? 0),
+  }
+}
+
+function mapOccupancy(raw: any): OccupancyRow[] | null {
+  if (!raw) return null
+  const items: any[] = Array.isArray(raw) ? raw : (raw.data ?? [])
+  if (!items.length) return null
+  return items.map((i: any) => ({
+    event: i.eventTitle ?? i.event ?? '—',
+    total: i.totalCapacity ?? i.total ?? 0,
+    sold:  i.totalSold ?? i.sold ?? 0,
+  }))
+}
+
+function mapUsers(raw: any): UserData | null {
+  if (!raw) return null
+  const items: any[] = Array.isArray(raw) ? raw : (raw.data ?? [])
+  if (!items.length) return null
+  return {
+    labels: items.map((i: any) => i.month ?? i.label ?? i.date ?? String(i)),
+    values: items.map((i: any) => i.count ?? i.value ?? i.total ?? 0),
+  }
+}
 
 function StatCard({ icon: Icon, label, value, sub, color }: { icon: React.ElementType; label: string; value: string; sub?: string; color: string }) {
   return (
@@ -64,29 +77,22 @@ function StatCard({ icon: Icon, label, value, sub, color }: { icon: React.Elemen
 }
 
 export default function Dashboard() {
-  const [sales, setSales]       = useState<SalesData | null>(null)
-  const [occ, setOcc]           = useState<OccupancyData | null>(null)
-  const [users, setUsers]       = useState<UserData | null>(null)
-  const [loading, setLoading]   = useState(true)
+  const [sales, setSales]     = useState<SalesData | null>(null)
+  const [occ, setOcc]         = useState<OccupancyRow[] | null>(null)
+  const [users, setUsers]     = useState<UserData | null>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const load = async () => {
-      if (isDemo()) {
-        setSales(DEMO_SALES)
-        setOcc(DEMO_OCCUPANCY)
-        setUsers(DEMO_USERS)
-        setLoading(false)
-        return
-      }
       try {
-        const [s, o, u] = await Promise.all([
+        const [rawSales, rawOcc, rawUsers] = await Promise.allSettled([
           api.get<any>('/reports/sales'),
           api.get<any>('/reports/occupancy'),
           api.get<any>('/reports/users'),
         ])
-        setSales(s)
-        setOcc(o)
-        setUsers(u)
+        if (rawSales.status === 'fulfilled') setSales(mapSales(rawSales.value))
+        if (rawOcc.status === 'fulfilled')   setOcc(mapOccupancy(rawOcc.value))
+        if (rawUsers.status === 'fulfilled') setUsers(mapUsers(rawUsers.value))
       } finally {
         setLoading(false)
       }
@@ -94,9 +100,9 @@ export default function Dashboard() {
     load()
   }, [])
 
-  const totalSales  = sales ? sales.values.reduce((a, b) => a + b, 0) : 0
+  const totalSales   = sales ? sales.values.reduce((a, b) => a + b, 0) : 0
   const totalTickets = occ ? occ.reduce((a, o) => a + o.sold, 0) : 0
-  const totalUsers  = users ? users.values.reduce((a, b) => a + b, 0) : 0
+  const totalUsers   = users ? users.values.reduce((a, b) => a + b, 0) : 0
 
   return (
     <div style={{ padding: '2rem' }}>
@@ -113,19 +119,18 @@ export default function Dashboard() {
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
-          <StatCard icon={DollarSign} label="Ventas totales" value={`$${(totalSales / 1000000).toFixed(1)}M`} sub="Últimos 6 meses" color="#9333EA" />
-          <StatCard icon={Ticket}     label="Boletas vendidas" value={totalTickets.toLocaleString()} sub="Todos los eventos" color="#F59E0B" />
-          <StatCard icon={Users}      label="Nuevos usuarios" value={totalUsers.toLocaleString()} sub="Últimos 6 meses" color="#22C55E" />
-          <StatCard icon={TrendingUp} label="Ocupación media" value={occ ? `${Math.round(occ.reduce((a,o) => a + o.sold/o.total, 0)/occ.length * 100)}%` : '—'} sub="Promedio eventos" color="#60A5FA" />
+          <StatCard icon={DollarSign} label="Ventas totales" value={totalSales ? `$${(totalSales / 1000000).toFixed(1)}M` : '—'} sub="Últimos 6 meses" color="#9333EA" />
+          <StatCard icon={Ticket}     label="Boletas vendidas" value={totalTickets ? totalTickets.toLocaleString() : '—'} sub="Todos los eventos" color="#F59E0B" />
+          <StatCard icon={Users}      label="Nuevos usuarios" value={totalUsers ? totalUsers.toLocaleString() : '—'} sub="Últimos 6 meses" color="#22C55E" />
+          <StatCard icon={TrendingUp} label="Ocupación media" value={occ && occ.length ? `${Math.round(occ.reduce((a, o) => a + o.sold / o.total, 0) / occ.length * 100)}%` : '—'} sub="Promedio eventos" color="#60A5FA" />
         </div>
       )}
 
-      {/* Charts row */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
         <div className="card">
           <h3 style={{ fontSize: '1rem', marginBottom: '1.25rem' }}>Ventas mensuales</h3>
           <div style={{ height: 220 }}>
-            {sales ? (
+            {loading ? <div className="skeleton" style={{ height: '100%' }} /> : sales ? (
               <Bar
                 data={{
                   labels: sales.labels,
@@ -139,14 +144,18 @@ export default function Dashboard() {
                 }}
                 options={CHART_OPTS as any}
               />
-            ) : <div className="skeleton" style={{ height: '100%' }} />}
+            ) : (
+              <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>
+                Sin datos de ventas
+              </div>
+            )}
           </div>
         </div>
 
         <div className="card">
           <h3 style={{ fontSize: '1rem', marginBottom: '1.25rem' }}>Registro de usuarios</h3>
           <div style={{ height: 220 }}>
-            {users ? (
+            {loading ? <div className="skeleton" style={{ height: '100%' }} /> : users ? (
               <Line
                 data={{
                   labels: users.labels,
@@ -163,12 +172,15 @@ export default function Dashboard() {
                 }}
                 options={CHART_OPTS as any}
               />
-            ) : <div className="skeleton" style={{ height: '100%' }} />}
+            ) : (
+              <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>
+                Sin datos de usuarios
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Occupancy table */}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid rgba(147,51,234,0.1)' }}>
           <h3 style={{ fontSize: '1rem' }}>Ocupación por evento</h3>
@@ -184,8 +196,10 @@ export default function Dashboard() {
               </tr>
             </thead>
             <tbody>
-              {occ ? occ.map((row, i) => {
-                const pct = Math.round(row.sold / row.total * 100)
+              {loading ? (
+                <tr><td colSpan={4}><div className="skeleton" style={{ height: 20 }} /></td></tr>
+              ) : occ && occ.length ? occ.map((row, i) => {
+                const pct = row.total ? Math.round(row.sold / row.total * 100) : 0
                 return (
                   <tr key={i}>
                     <td style={{ fontWeight: 500 }}>{row.event}</td>
@@ -202,7 +216,7 @@ export default function Dashboard() {
                   </tr>
                 )
               }) : (
-                <tr><td colSpan={4}><div className="skeleton" style={{ height: 20 }} /></td></tr>
+                <tr><td colSpan={4} style={{ textAlign: 'center', color: 'var(--color-text-muted)', padding: '2rem' }}>Sin datos de ocupación</td></tr>
               )}
             </tbody>
           </table>

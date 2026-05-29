@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api/client'
-import { DEMO_TOKEN } from '../context/AuthContext'
 import { ChevronLeft, ChevronRight, Search } from 'lucide-react'
 
 interface AuditEntry {
@@ -14,23 +13,6 @@ interface AuditEntry {
   created_at: string
   ip?: string
 }
-
-const DEMO_AUDIT: AuditEntry[] = [
-  { id: 1,  user_name: 'Admin Demo', user_email: 'admin@novapass.com', action: 'CREATE', entity: 'Event',    entity_id: '3', details: 'Creó evento Ballet Gala',           created_at: '2026-05-25T10:15:00', ip: '192.168.1.10' },
-  { id: 2,  user_name: 'Admin Demo', user_email: 'admin@novapass.com', action: 'UPDATE', entity: 'Event',    entity_id: '1', details: 'Actualizó precio categoría VIP',    created_at: '2026-05-25T09:42:00', ip: '192.168.1.10' },
-  { id: 3,  user_name: 'Admin Demo', user_email: 'admin@novapass.com', action: 'RESPOND', entity: 'PQRS',   entity_id: '3', details: 'Respondió queja de María Torres',    created_at: '2026-05-24T16:30:00', ip: '192.168.1.10' },
-  { id: 4,  user_name: 'Admin Demo', user_email: 'admin@novapass.com', action: 'CREATE', entity: 'Employee', entity_id: '2', details: 'Creó empleado Tomás Scanner',       created_at: '2026-05-23T11:00:00', ip: '192.168.1.10' },
-  { id: 5,  user_name: 'Admin Demo', user_email: 'admin@novapass.com', action: 'DELETE', entity: 'Event',    entity_id: '5', details: 'Canceló evento Feria de Verano',    created_at: '2026-05-22T14:20:00', ip: '192.168.1.10' },
-  { id: 6,  user_name: 'Admin Demo', user_email: 'admin@novapass.com', action: 'UPDATE', entity: 'Employee', entity_id: '3', details: 'Desactivó empleado Paula Dual',     created_at: '2026-05-21T08:55:00', ip: '192.168.1.10' },
-  { id: 7,  user_name: 'Admin Demo', user_email: 'admin@novapass.com', action: 'CLOSE',  entity: 'PQRS',    entity_id: '4', details: 'Cerró reclamo de Carlos Ruiz',       created_at: '2026-05-20T17:10:00', ip: '192.168.1.10' },
-  { id: 8,  user_name: 'Admin Demo', user_email: 'admin@novapass.com', action: 'CREATE', entity: 'Event',    entity_id: '2', details: 'Creó evento Rock Clásico',          created_at: '2026-05-19T13:00:00', ip: '192.168.1.10' },
-  { id: 9,  user_name: 'Admin Demo', user_email: 'admin@novapass.com', action: 'UPDATE', entity: 'Event',    entity_id: '2', details: 'Publicó evento Rock Clásico',       created_at: '2026-05-19T13:30:00', ip: '192.168.1.10' },
-  { id: 10, user_name: 'Admin Demo', user_email: 'admin@novapass.com', action: 'CREATE', entity: 'Employee', entity_id: '1', details: 'Creó empleado Sofía Vendedora',     created_at: '2026-05-18T10:00:00', ip: '192.168.1.10' },
-  { id: 11, user_name: 'Admin Demo', user_email: 'admin@novapass.com', action: 'RESPOND', entity: 'PQRS',   entity_id: '2', details: 'Inició proceso reclamo Luis Martínez', created_at: '2026-05-17T15:45:00', ip: '192.168.1.10' },
-  { id: 12, user_name: 'Admin Demo', user_email: 'admin@novapass.com', action: 'UPDATE', entity: 'Employee', entity_id: '1', details: 'Asignó portal taquilla a Sofía',    created_at: '2026-05-16T09:20:00', ip: '192.168.1.10' },
-]
-
-const isDemo = () => localStorage.getItem('token') === DEMO_TOKEN
 
 const ACTION_BADGE: Record<string, string> = {
   CREATE: 'badge-success',
@@ -51,10 +33,10 @@ export default function Audit() {
   useEffect(() => {
     const load = async () => {
       setLoading(true)
-      if (isDemo()) { setEntries(DEMO_AUDIT); setLoading(false); return }
       try {
-        const data = await api.get<AuditEntry[]>('/reports/audit')
-        setEntries(data)
+        const resp = await api.get<any>('/reports/audit')
+        const list: AuditEntry[] = Array.isArray(resp) ? resp : (resp?.data ?? resp?.entries ?? [])
+        setEntries(list)
       } finally {
         setLoading(false)
       }

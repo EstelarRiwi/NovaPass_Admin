@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api/client'
-import { DEMO_TOKEN } from '../context/AuthContext'
 import { Plus, UserX, UserCheck, X, Shield } from 'lucide-react'
 
 interface Employee {
@@ -12,18 +11,10 @@ interface Employee {
   created_at: string
 }
 
-const DEMO_EMP: Employee[] = [
-  { id: '1', name: 'Sofía Vendedora', email: 'sofia@novapass.com', permissions: ['taquilla'], active: true, created_at: '2026-03-10' },
-  { id: '2', name: 'Tomás Scanner', email: 'tomas@novapass.com', permissions: ['acceso'], active: true, created_at: '2026-03-15' },
-  { id: '3', name: 'Paula Dual', email: 'paula@novapass.com', permissions: ['taquilla', 'acceso'], active: false, created_at: '2026-02-01' },
-]
-
-const isDemo = () => localStorage.getItem('token') === DEMO_TOKEN
-
 const PERM_LABEL: Record<string, string> = { taquilla: 'Taquilla', acceso: 'Acceso' }
 const PERM_COLOR: Record<string, string> = { taquilla: 'badge-warning', acceso: 'badge-primary' }
 
-const EMPTY = { name: '', email: '', password: '', permissions: [] as ('taquilla' | 'acceso')[] }
+const EMPTY = { fullName: '', email: '', password: '', permissions: [] as ('taquilla' | 'acceso')[] }
 
 export default function Employees() {
   const [employees, setEmployees] = useState<Employee[]>([])
@@ -36,10 +27,12 @@ export default function Employees() {
 
   const load = async () => {
     setLoading(true)
-    if (isDemo()) { setEmployees(DEMO_EMP); setLoading(false); return }
     try {
-      const data = await api.get<Employee[]>('/users/employees')
-      setEmployees(data)
+      const data = await api.get<any>('/users/employees')
+      const list: Employee[] = Array.isArray(data) ? data : (data?.employees ?? data?.data ?? [])
+      setEmployees(list)
+    } catch {
+      setEmployees([])
     } finally {
       setLoading(false)
     }
@@ -51,11 +44,7 @@ export default function Employees() {
     if (!modal) return
     setSaving(true); setError('')
     try {
-      if (isDemo()) {
-        const newEmp: Employee = { id: String(Date.now()), ...modal, active: true, created_at: new Date().toISOString().slice(0, 10) }
-        setEmployees(e => [...e, newEmp]); setModal(null); return
-      }
-      const created = await api.post<Employee>('/auth/employees', modal)
+      const created = await api.post<Employee>('/users/employees', modal)
       setEmployees(e => [...e, created])
       setModal(null)
     } catch (e) {
@@ -66,13 +55,9 @@ export default function Employees() {
   }
 
   const toggleActive = async (emp: Employee) => {
-    if (isDemo()) {
-      setEmployees(e => e.map(x => x.id === emp.id ? { ...x, active: !x.active } : x))
-      return
-    }
     try {
       if (emp.active) {
-        await api.delete(`/auth/employees/${emp.id}`)
+        await api.delete(`/users/employees/${emp.id}`)
       } else {
         await api.put(`/users/employees/${emp.id}/activate`, {})
       }
@@ -91,10 +76,6 @@ export default function Employees() {
     if (!permModal) return
     setSaving(true)
     try {
-      if (isDemo()) {
-        setEmployees(e => e.map(x => x.id === permModal.id ? { ...x, permissions: permEdit } : x))
-        setPermModal(null); return
-      }
       await api.put(`/users/employees/${permModal.id}/permissions`, { portals: permEdit })
       await load()
       setPermModal(null)
@@ -192,7 +173,7 @@ export default function Employees() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div className="form-group">
                 <label>Nombre completo</label>
-                <input value={modal.name} onChange={e => setModal(m => m ? { ...m, name: e.target.value } : m)} placeholder="Sofía López" />
+                <input value={modal.fullName} onChange={e => setModal(m => m ? { ...m, fullName: e.target.value } : m)} placeholder="Sofía López" />
               </div>
               <div className="form-group">
                 <label>Correo electrónico</label>

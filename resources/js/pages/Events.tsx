@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api/client'
-import { DEMO_TOKEN } from '../context/AuthContext'
-import { Plus, Pencil, Trash2, X, Calendar, MapPin, Tag } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, Calendar, MapPin, Tag, Ban } from 'lucide-react'
 
 interface Category {
   id: number
@@ -13,34 +12,36 @@ interface Category {
 interface Event {
   id: number
   title: string
+  description: string
   date: string
   venue: string
-  status: 'published' | 'draft' | 'cancelled'
+  status: 'active' | 'published' | 'draft' | 'cancelled'
   categories: Category[]
   image_url?: string
 }
 
-const DEMO_EVENTS: Event[] = [
-  { id: 1, title: 'Noche de Jazz', date: '2026-07-15T20:00', venue: 'Teatro Metropolitano', status: 'published', categories: [{ id: 1, name: 'General', price: 80000, capacity: 300 }, { id: 2, name: 'VIP', price: 150000, capacity: 50 }] },
-  { id: 2, title: 'Rock Clásico', date: '2026-08-02T19:00', venue: 'Plaza Mayor', status: 'published', categories: [{ id: 3, name: 'General', price: 60000, capacity: 600 }, { id: 4, name: 'Palco', price: 120000, capacity: 200 }] },
-  { id: 3, title: 'Ballet Gala', date: '2026-06-20T18:00', venue: 'Teatro Colón', status: 'draft', categories: [{ id: 5, name: 'Platea', price: 200000, capacity: 250 }, { id: 6, name: 'Balcón', price: 120000, capacity: 100 }] },
-]
-
-const isDemo = () => localStorage.getItem('token') === DEMO_TOKEN
+interface EventsResponse {
+  events: Event[]
+  total: number
+  page: number
+  perPage: number
+}
 
 const STATUS_BADGE: Record<string, string> = {
+  active: 'badge-success',
   published: 'badge-success',
   draft: 'badge-warning',
   cancelled: 'badge-error',
 }
 const STATUS_LABEL: Record<string, string> = {
+  active: 'Activo',
   published: 'Publicado',
   draft: 'Borrador',
   cancelled: 'Cancelado',
 }
 
 const EMPTY: Omit<Event, 'id'> = {
-  title: '', date: '', venue: '', status: 'draft',
+  title: '', description: '', date: '', venue: '', status: 'draft',
   categories: [{ id: Date.now(), name: '', price: 0, capacity: 0 }],
 }
 
@@ -51,13 +52,14 @@ export default function Events() {
   const [saving, setSaving]   = useState(false)
   const [error, setError]     = useState('')
   const [confirmDel, setConfirmDel] = useState<number | null>(null)
+  const [confirmClose, setConfirmClose] = useState<Event | null>(null)
 
   const load = async () => {
     setLoading(true)
-    if (isDemo()) { setEvents(DEMO_EVENTS); setLoading(false); return }
     try {
-      const data = await api.get<Event[]>('/events')
-      setEvents(data)
+      const resp = await api.get<EventsResponse | Event[]>('/events')
+      const list = Array.isArray(resp) ? resp : (resp as EventsResponse).events ?? []
+      setEvents(list)
     } finally {
       setLoading(false)
     }
@@ -93,20 +95,14 @@ export default function Events() {
     if (!modal) return
     setSaving(true); setError('')
     try {
-      if (isDemo()) {
-        if (modal.mode === 'create') {
-          setEvents(ev => [...ev, { ...modal.data, id: Date.now() } as Event])
-        } else {
-          setEvents(ev => ev.map(e => e.id === modal.data.id ? { ...modal.data } as Event : e))
-        }
-        setModal(null)
-        return
-      }
+      const payload = { ...modal.data }
       if (modal.mode === 'create') {
-        const created = await api.post<Event>('/events', modal.data)
+        const resp = await api.post<any>('/events', payload)
+        const created: Event = resp.events ? resp.events[0] : resp
         setEvents(ev => [...ev, created])
       } else {
-        const updated = await api.put<Event>(`/events/${modal.data.id}`, modal.data)
+        const resp = await api.put<any>(`/events/${modal.data.id}`, payload)
+        const updated: Event = resp.events ? resp.events[0] : resp
         setEvents(ev => ev.map(e => e.id === updated.id ? updated : e))
       }
       setModal(null)
@@ -118,7 +114,6 @@ export default function Events() {
   }
 
   const deleteEvent = async (id: number) => {
-    if (isDemo()) { setEvents(ev => ev.filter(e => e.id !== id)); setConfirmDel(null); return }
     try {
       await api.delete(`/events/${id}`)
       setEvents(ev => ev.filter(e => e.id !== id))
@@ -126,6 +121,17 @@ export default function Events() {
       alert(e instanceof Error ? e.message : 'Error al eliminar')
     }
     setConfirmDel(null)
+  }
+
+  const closeEvent = async (ev: Event) => {
+    try {
+      const resp = await api.put<any>(`/events/${ev.id}`, { ...ev, status: 'cancelled' })
+      const updated: Event = resp.events ? resp.events[0] : resp
+      setEvents(evs => evs.map(e => e.id === updated.id ? updated : e))
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Error al cancelar evento')
+    }
+    setConfirmClose(null)
   }
 
   const fmt = (d: string) => new Date(d).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })
@@ -176,19 +182,24 @@ export default function Events() {
                   </td>
                   <td>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
-                      {ev.categories.map(c => (
-                        <span key={c.id} className="badge badge-primary" style={{ fontSize: '0.65rem' }}>
+                      {ev.categories.map((c, i) => (
+                        <span key={c.id ?? i} className="badge badge-primary" style={{ fontSize: '0.65rem' }}>
                           {c.name} · {fmtPrice(c.price)}
                         </span>
                       ))}
                     </div>
                   </td>
-                  <td><span className={`badge ${STATUS_BADGE[ev.status]}`}>{STATUS_LABEL[ev.status]}</span></td>
+                  <td><span className={`badge ${STATUS_BADGE[ev.status] ?? 'badge-muted'}`}>{STATUS_LABEL[ev.status] ?? ev.status}</span></td>
                   <td>
                     <div style={{ display: 'flex', gap: '0.375rem' }}>
                       <button className="btn btn-ghost btn-icon btn-sm" onClick={() => openEdit(ev)} title="Editar">
                         <Pencil size={14} />
                       </button>
+                      {ev.status !== 'cancelled' && (
+                        <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setConfirmClose(ev)} title="Cancelar evento" style={{ color: 'var(--color-warning)' }}>
+                          <Ban size={14} />
+                        </button>
+                      )}
                       <button className="btn btn-danger btn-icon btn-sm" onClick={() => setConfirmDel(ev.id)} title="Eliminar">
                         <Trash2 size={14} />
                       </button>
@@ -218,6 +229,22 @@ export default function Events() {
         </div>
       )}
 
+      {/* Close/cancel confirm */}
+      {confirmClose !== null && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: '1.5rem' }}>
+          <div className="card" style={{ maxWidth: 380, width: '100%' }}>
+            <h3 style={{ marginBottom: '0.75rem' }}>¿Cancelar evento?</h3>
+            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem', marginBottom: '1.5rem' }}>
+              El evento <strong>{confirmClose.title}</strong> pasará a estado Cancelado. No se elimina.
+            </p>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setConfirmClose(null)}>Volver</button>
+              <button className="btn btn-danger" style={{ flex: 1 }} onClick={() => closeEvent(confirmClose)}>Cancelar evento</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal create/edit */}
       {modal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 200, padding: '2rem 1.5rem', overflowY: 'auto' }}>
@@ -234,6 +261,15 @@ export default function Events() {
                 <label>Nombre del evento</label>
                 <input value={modal.data.title ?? ''} onChange={e => updateField('title', e.target.value)} placeholder="Ej. Noche de Jazz" />
               </div>
+              <div className="form-group">
+                <label>Descripción</label>
+                <textarea
+                  value={modal.data.description ?? ''}
+                  onChange={e => updateField('description', e.target.value)}
+                  placeholder="Descripción del evento..."
+                  rows={2}
+                />
+              </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div className="form-group">
                   <label>Fecha y hora</label>
@@ -243,7 +279,7 @@ export default function Events() {
                   <label>Estado</label>
                   <select value={modal.data.status ?? 'draft'} onChange={e => updateField('status', e.target.value)}>
                     <option value="draft">Borrador</option>
-                    <option value="published">Publicado</option>
+                    <option value="active">Activo</option>
                     <option value="cancelled">Cancelado</option>
                   </select>
                 </div>
@@ -260,7 +296,7 @@ export default function Events() {
                   <button className="btn btn-ghost btn-sm" onClick={addCat}><Plus size={13} /> Agregar</button>
                 </div>
                 {(modal.data.categories ?? []).map((cat, idx) => (
-                  <div key={cat.id} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '0.5rem', marginBottom: '0.5rem', alignItems: 'flex-end' }}>
+                  <div key={cat.id ?? idx} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '0.5rem', marginBottom: '0.5rem', alignItems: 'flex-end' }}>
                     <div className="form-group" style={{ margin: 0 }}>
                       {idx === 0 && <label>Nombre</label>}
                       <input value={cat.name} onChange={e => updateCat(idx, 'name', e.target.value)} placeholder="General" />
@@ -273,7 +309,7 @@ export default function Events() {
                       {idx === 0 && <label>Capacidad</label>}
                       <input type="number" value={cat.capacity} onChange={e => updateCat(idx, 'capacity', +e.target.value)} placeholder="300" />
                     </div>
-                    <button className="btn btn-danger btn-icon btn-sm" style={{ marginBottom: idx === 0 ? 0 : 0, alignSelf: 'flex-end' }} onClick={() => removeCat(idx)} disabled={(modal.data.categories?.length ?? 0) <= 1}>
+                    <button className="btn btn-danger btn-icon btn-sm" style={{ alignSelf: 'flex-end' }} onClick={() => removeCat(idx)} disabled={(modal.data.categories?.length ?? 0) <= 1}>
                       <X size={13} />
                     </button>
                   </div>

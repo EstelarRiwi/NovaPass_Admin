@@ -1,27 +1,25 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api/client'
-import { DEMO_TOKEN } from '../context/AuthContext'
 import { MessageSquare, Send, X, Filter } from 'lucide-react'
+
+interface PqrsResponse {
+  id: string
+  message: string
+  adminId: string
+  createdAt: string
+}
 
 interface PqrsItem {
   id: string
-  userName: string
-  userEmail: string
+  userName?: string
+  userEmail?: string
   type: 'question' | 'complaint' | 'claim' | 'suggestion'
   message: string
   status: 'pending' | 'in_progress' | 'resolved' | 'closed'
   createdAt: string
+  responses?: PqrsResponse[]
   latestResponse?: string
 }
-
-const DEMO_PQRS: PqrsItem[] = [
-  { id: '1', userName: 'Ana Gómez', userEmail: 'ana@example.com', type: 'complaint', message: 'El proceso de compra falló dos veces antes de completarse.', status: 'pending', createdAt: '2026-05-20T14:30:00' },
-  { id: '2', userName: 'Luis Martínez', userEmail: 'luis@example.com', type: 'claim', message: 'No recibí mis boletas por correo después de pagar.', status: 'in_progress', createdAt: '2026-05-22T09:15:00' },
-  { id: '3', userName: 'María Torres', userEmail: 'maria@example.com', type: 'suggestion', message: 'Sería útil tener filtros por género musical en los eventos.', status: 'resolved', createdAt: '2026-05-18T16:45:00', latestResponse: 'Gracias por la sugerencia, está en nuestro roadmap.' },
-  { id: '4', userName: 'Carlos Ruiz', userEmail: 'carlos@example.com', type: 'question', message: 'Solicito reembolso por evento cancelado el 15 de mayo.', status: 'closed', createdAt: '2026-05-16T11:00:00', latestResponse: 'Reembolso procesado el 17 de mayo.' },
-]
-
-const isDemo = () => localStorage.getItem('token') === DEMO_TOKEN
 
 const TYPE_LABEL: Record<string, string> = { question: 'Petición', complaint: 'Queja', claim: 'Reclamo', suggestion: 'Sugerencia' }
 const TYPE_BADGE: Record<string, string> = { question: 'badge-primary', complaint: 'badge-error', claim: 'badge-warning', suggestion: 'badge-success' }
@@ -39,10 +37,9 @@ export default function PQRS() {
 
   const load = async () => {
     setLoading(true)
-    if (isDemo()) { setItems(DEMO_PQRS); setLoading(false); return }
     try {
       const data = await api.get<PqrsItem[]>('/pqrs')
-      setItems(data)
+      setItems(Array.isArray(data) ? data : [])
     } finally {
       setLoading(false)
     }
@@ -52,7 +49,8 @@ export default function PQRS() {
 
   const openItem = (item: PqrsItem) => {
     setSelected(item)
-    setResponse(item.latestResponse ?? '')
+    const lastResp = item.responses?.length ? item.responses[item.responses.length - 1].message : (item.latestResponse ?? '')
+    setResponse(lastResp)
     setNewStatus(item.status)
   }
 
@@ -60,14 +58,8 @@ export default function PQRS() {
     if (!selected) return
     setSaving(true)
     try {
-      if (isDemo()) {
-        const updated = { ...selected, latestResponse: response, status: newStatus as PqrsItem['status'] }
-        setItems(it => it.map(i => i.id === selected.id ? updated : i))
-        setSelected(null)
-        return
-      }
       if (newStatus === 'closed') {
-        await api.post(`/pqrs/${selected.id}/close`)
+        await api.post(`/pqrs/${selected.id}/close`, {})
       } else {
         await api.post(`/pqrs/${selected.id}/respond`, { message: response, newStatus })
       }
@@ -126,17 +118,17 @@ export default function PQRS() {
               {filtered.map(item => (
                 <tr key={item.id}>
                   <td>
-                    <div style={{ fontWeight: 500, fontSize: '0.875rem' }}>{item.userName}</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{item.userEmail}</div>
+                    <div style={{ fontWeight: 500, fontSize: '0.875rem' }}>{item.userName ?? '—'}</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{item.userEmail ?? item.id.slice(0, 8)}</div>
                   </td>
-                  <td><span className={`badge ${TYPE_BADGE[item.type]}`}>{TYPE_LABEL[item.type]}</span></td>
+                  <td><span className={`badge ${TYPE_BADGE[item.type] ?? 'badge-muted'}`}>{TYPE_LABEL[item.type] ?? item.type}</span></td>
                   <td style={{ maxWidth: 280 }}>
                     <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {item.message}
                     </div>
                   </td>
                   <td style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>{fmt(item.createdAt)}</td>
-                  <td><span className={`badge ${STATUS_BADGE[item.status]}`}>{STATUS_LABEL[item.status]}</span></td>
+                  <td><span className={`badge ${STATUS_BADGE[item.status] ?? 'badge-muted'}`}>{STATUS_LABEL[item.status] ?? item.status}</span></td>
                   <td>
                     <button className="btn btn-ghost btn-sm" onClick={() => openItem(item)}>
                       <MessageSquare size={13} /> Ver
@@ -158,15 +150,15 @@ export default function PQRS() {
           <div className="card slide-in-up" style={{ maxWidth: 500, width: '100%', padding: '1.75rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
               <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                <span className={`badge ${TYPE_BADGE[selected.type]}`}>{TYPE_LABEL[selected.type]}</span>
+                <span className={`badge ${TYPE_BADGE[selected.type] ?? 'badge-muted'}`}>{TYPE_LABEL[selected.type] ?? selected.type}</span>
                 <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{fmt(selected.createdAt)}</span>
               </div>
               <button className="btn btn-ghost btn-icon" onClick={() => setSelected(null)}><X size={18} /></button>
             </div>
 
             <div style={{ marginBottom: '1rem' }}>
-              <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>{selected.userName}</div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginBottom: '0.875rem' }}>{selected.userEmail}</div>
+              {selected.userName && <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>{selected.userName}</div>}
+              {selected.userEmail && <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginBottom: '0.875rem' }}>{selected.userEmail}</div>}
               <div style={{
                 background: 'rgba(255,255,255,0.03)',
                 border: '1px solid var(--glass-border)',
@@ -178,14 +170,33 @@ export default function PQRS() {
               }}>
                 {selected.message}
               </div>
+
+              {/* Previous responses */}
+              {selected.responses && selected.responses.length > 0 && (
+                <div style={{ marginTop: '0.75rem' }}>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginBottom: '0.375rem' }}>Respuestas anteriores:</div>
+                  {selected.responses.map(r => (
+                    <div key={r.id} style={{
+                      background: 'rgba(147,51,234,0.06)',
+                      border: '1px solid rgba(147,51,234,0.15)',
+                      borderRadius: 'var(--radius-sm)',
+                      padding: '0.625rem 0.875rem',
+                      fontSize: '0.8125rem',
+                      marginBottom: '0.375rem',
+                    }}>
+                      {r.message}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="form-group" style={{ marginBottom: '1rem' }}>
-              <label>Respuesta</label>
+              <label>Nueva respuesta</label>
               <textarea
                 value={response}
                 onChange={e => setResponse(e.target.value)}
-                rows={4}
+                rows={3}
                 placeholder="Escribe tu respuesta aquí..."
                 disabled={selected.status === 'closed'}
               />

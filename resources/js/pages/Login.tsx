@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { Shield, LogIn, Zap } from 'lucide-react'
+import { Shield, LogIn } from 'lucide-react'
 
 export default function Login() {
-  const { login, demoLogin, loading } = useAuth()
+  const { login, loading } = useAuth()
   const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
   const [error, setError]       = useState('')
@@ -29,7 +29,6 @@ export default function Login() {
       overflow: 'hidden',
       padding: '2rem 1.5rem',
     }}>
-      {/* Orbs */}
       <div style={{
         position: 'absolute', width: 600, height: 600, borderRadius: '50%',
         background: 'radial-gradient(circle, rgba(147, 51, 234, 0.18) 0%, transparent 70%)',
@@ -50,7 +49,6 @@ export default function Login() {
       }} />
 
       <div style={{ width: '100%', maxWidth: 420, position: 'relative', zIndex: 1 }} className="slide-in-up">
-        {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
           <div style={{
             fontFamily: 'var(--font-heading)',
@@ -77,7 +75,6 @@ export default function Login() {
           </div>
         </div>
 
-        {/* Card */}
         <div className="card" style={{ padding: '2rem' }}>
           <h2 style={{ fontSize: '1.25rem', marginBottom: '0.375rem' }}>Iniciar sesión</h2>
           <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', marginBottom: '1.75rem' }}>
@@ -120,17 +117,6 @@ export default function Login() {
               {loading ? 'Verificando...' : 'Ingresar'}
             </button>
           </form>
-
-          <div className="divider" />
-
-          <button
-            onClick={demoLogin}
-            className="btn btn-outline"
-            style={{ width: '100%', gap: '0.625rem' }}
-          >
-            <Zap size={16} style={{ color: 'var(--color-cta)' }} />
-            Modo demo
-          </button>
         </div>
       </div>
     </div>
