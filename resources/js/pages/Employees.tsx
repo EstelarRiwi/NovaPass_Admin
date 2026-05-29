@@ -55,7 +55,7 @@ export default function Employees() {
         const newEmp: Employee = { id: String(Date.now()), ...modal, active: true, created_at: new Date().toISOString().slice(0, 10) }
         setEmployees(e => [...e, newEmp]); setModal(null); return
       }
-      const created = await api.post<Employee>('/users/employees', modal)
+      const created = await api.post<Employee>('/auth/employees', modal)
       setEmployees(e => [...e, created])
       setModal(null)
     } catch (e) {
@@ -72,9 +72,9 @@ export default function Employees() {
     }
     try {
       if (emp.active) {
-        await api.delete(`/users/employees/${emp.id}`)
+        await api.delete(`/auth/employees/${emp.id}`)
       } else {
-        await api.put(`/users/employees/${emp.id}/permissions`, { permissions: emp.permissions })
+        await api.put(`/users/employees/${emp.id}/activate`, {})
       }
       await load()
     } catch (e) {
