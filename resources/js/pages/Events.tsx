@@ -95,7 +95,14 @@ export default function Events() {
     if (!modal) return
     setSaving(true); setError('')
     try {
-      const payload = { ...modal.data }
+      const payload = {
+        ...modal.data,
+        categories: (modal.data.categories ?? []).map(c => ({
+          name: c.name,
+          price: c.price,
+          totalCapacity: c.capacity,
+        })),
+      }
       if (modal.mode === 'create') {
         const resp = await api.post<any>('/events', payload)
         const created: Event = resp.events ? resp.events[0] : resp
