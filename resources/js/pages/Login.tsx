@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { Shield, LogIn } from 'lucide-react'
+import { LayoutDashboard, Lock, LogIn, Zap } from 'lucide-react'
 
 export default function Login() {
   const { login, loading } = useAuth()
@@ -31,71 +31,77 @@ export default function Login() {
     }}>
       <div style={{
         position: 'absolute', width: 600, height: 600, borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(147, 51, 234, 0.18) 0%, transparent 70%)',
+        background: 'radial-gradient(circle, rgba(147, 51, 234, 0.2) 0%, transparent 70%)',
         top: -200, right: -180, pointerEvents: 'none',
         animation: 'float 9s ease-in-out infinite',
       }} />
       <div style={{
-        position: 'absolute', width: 420, height: 420, borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(245, 158, 11, 0.1) 0%, transparent 70%)',
+        position: 'absolute', width: 400, height: 400, borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(245, 158, 11, 0.09) 0%, transparent 70%)',
         bottom: -120, left: -100, pointerEvents: 'none',
         animation: 'float-reverse 12s ease-in-out infinite',
       }} />
       <div style={{
-        position: 'absolute', width: 300, height: 300, borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(147, 51, 234, 0.08) 0%, transparent 70%)',
-        bottom: '35%', right: '8%', pointerEvents: 'none',
-        animation: 'float 15s ease-in-out infinite 4s',
+        position: 'absolute', width: 280, height: 280, borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(147, 51, 234, 0.1) 0%, transparent 70%)',
+        bottom: '30%', right: '10%', pointerEvents: 'none',
+        animation: 'float 14s ease-in-out infinite 3s',
       }} />
 
       <div style={{ width: '100%', maxWidth: 420, position: 'relative', zIndex: 1 }} className="slide-in-up">
-        <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem', marginBottom: '2.5rem' }}>
           <div style={{
-            fontFamily: 'var(--font-heading)',
-            fontSize: '2.25rem',
+            display: 'inline-flex', alignItems: 'center', gap: '0.625rem',
+            fontFamily: 'var(--font-heading)', fontSize: '2.25rem',
             color: 'var(--color-primary-light)',
             textShadow: '0 0 40px rgba(192, 132, 252, 0.55)',
-            marginBottom: '0.5rem',
           }}>
+            <Zap size={30} fill="currentColor" />
             NovaPass
           </div>
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
             background: 'rgba(147, 51, 234, 0.1)',
             border: '1px solid rgba(147, 51, 234, 0.25)',
-            padding: '0.375rem 0.875rem',
-            borderRadius: 999,
-            fontSize: '0.75rem',
-            color: 'var(--color-text-muted)',
-            letterSpacing: '0.05em',
-            textTransform: 'uppercase',
+            borderRadius: '999px', padding: '0.375rem 0.875rem',
+            fontSize: '0.75rem', color: 'var(--color-text-muted)',
+            letterSpacing: '0.05em', textTransform: 'uppercase' as const,
           }}>
-            <Shield size={12} />
+            <LayoutDashboard size={12} />
             Panel de Administración
           </div>
         </div>
 
-        <div className="card" style={{ padding: '2rem' }}>
-          <h2 style={{ fontSize: '1.25rem', marginBottom: '0.375rem' }}>Iniciar sesión</h2>
-          <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', marginBottom: '1.75rem' }}>
-            Acceso exclusivo para administradores
-          </p>
+        <div className="card" style={{ padding: '2rem 2rem 1.75rem' }}>
+          <h2 style={{
+            textAlign: 'center', fontSize: '1.375rem', marginBottom: '1.75rem',
+            fontFamily: 'var(--font-heading)',
+            background: 'linear-gradient(135deg, var(--color-text) 0%, var(--color-primary-light) 100%)',
+            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+          }}>
+            Iniciar Sesión
+          </h2>
 
-          {error && <div className="alert-error" style={{ marginBottom: '1.25rem' }}>{error}</div>}
+          {error && (
+            <div className="alert-error" style={{ marginBottom: '1.25rem', textAlign: 'center' }}>
+              {error}
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div className="form-group">
+            <div>
               <label htmlFor="email">Correo electrónico</label>
               <input
                 id="email"
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                placeholder="admin@novapass.com"
+                placeholder="admin@estelar.com"
                 required
+                autoFocus
               />
             </div>
-            <div className="form-group">
+            <div>
               <label htmlFor="password">Contraseña</label>
               <input
                 id="password"
@@ -106,18 +112,28 @@ export default function Login() {
                 required
               />
             </div>
-
             <button
               type="submit"
               className="btn btn-primary btn-lg"
-              style={{ marginTop: '0.5rem', width: '100%' }}
               disabled={loading}
+              style={{ marginTop: '0.5rem' }}
             >
-              {loading ? <span className="spinner" style={{ width: 18, height: 18 }} /> : <LogIn size={17} />}
-              {loading ? 'Verificando...' : 'Ingresar'}
+              {loading
+                ? <span className="spinner" style={{ width: 20, height: 20, borderWidth: 2 }} />
+                : <><LogIn size={18} /> Ingresar</>
+              }
             </button>
           </form>
         </div>
+
+        <p style={{
+          textAlign: 'center', marginTop: '1.75rem', fontSize: '0.8125rem',
+          color: 'var(--color-text-muted)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.375rem',
+        }}>
+          <Lock size={13} />
+          Acceso exclusivo para administradores
+        </p>
       </div>
     </div>
   )
